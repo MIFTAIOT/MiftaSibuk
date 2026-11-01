@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MiftaSibuk - Manajemen Waktu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f6f8fb;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: #1d1d1f;
+        }
+
+        /* --- Dynamic Mesh Gradient Background --- */
+        .mesh-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background-color: #f2eefa;
+            overflow: hidden;
+        }
+        .mesh-blob {
+            position: absolute;
+            filter: blur(90px);
+            border-radius: 50%;
+            animation: float 20s infinite ease-in-out alternate;
+            opacity: 0.6;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: #e0c3fc; animation-delay: 0s; }
+        .blob-2 { bottom: -10%; right: -10%; width: 60vw; height: 60vw; background: #8ec5fc; animation-delay: -5s; }
+        .blob-3 { top: 40%; left: 60%; width: 40vw; height: 40vw; background: #ffecd2; animation-delay: -10s; }
+        .blob-4 { bottom: 20%; left: 10%; width: 45vw; height: 45vw; background: #fcb69f; animation-delay: -15s; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        /* --- Apple Glassmorphism Utilities --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 24px;
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.9);
+            outline: none;
+            border-color: #0071e3;
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15), inset 0 2px 4px rgba(0,0,0,0.01);
+        }
+
+        /* --- Apple Spring Animations --- */
+        .spring-up {
+            animation: springUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes springUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn-press {
+            transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s;
+        }
+        .btn-press:active {
+            transform: scale(0.96);
+            opacity: 0.8;
+        }
+
+        /* --- Custom Scrollbar --- */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
+
+        /* --- iOS Notification Toast --- */
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .ios-toast {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border-radius: 999px;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1d1d1f;
+            animation: toastSlideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes toastSlideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-exit {
+            animation: toastSlideUp 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+        @keyframes toastSlideUp {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-100%); opacity: 0; }
+        }
+
+        /* Task specific styling */
+        .task-card {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -10px rgba(0,0,0,0.1);
+        }
+
+        /* --- New UI Additions --- */
+        .progress-ring {
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tab-active {
+            background: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            color: #111827;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .tab-inactive:hover {
+            color: #374151;
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Mesh Gradient Background -->
+    <div class="mesh-bg">
+        <div class="mesh-blob blob-1"></div>
+        <div class="mesh-blob blob-2"></div>
+        <div class="mesh-blob blob-3"></div>
+        <div class="mesh-blob blob-4"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer"></div>
+
+    <!-- Top Navigation (Glass) -->
+    <nav class="sticky top-0 z-50 px-4 sm:px-6 py-4">
+        <div class="max-w-6xl mx-auto glass-panel rounded-full px-6 py-3 flex justify-between items-center bg-white/40">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-calendar-check text-sm"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight text-gray-900" style="letter-spacing: -0.5px;">
+                    MiftaSibuk
+                </h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="currentDateDisplay" class="text-sm font-medium text-gray-500 hidden sm:block"></span>
+                <div id="authStatus" class="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-white/50 border border-white/60 text-gray-500 shadow-sm">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Syncing
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+        
+        <!-- Left Column: Productivity Widgets & Form -->
+        <div class="lg:col-span-4 space-y-6">
+            
+            <!-- Stats & Progress -->
+            <div class="glass-panel p-5 spring-up" style="animation-delay: 0.05s;">
+                <h3 class="text-xs font-bold text-gray-500 mb-4 uppercase tracking-wider">Statistik Hari Ini</h3>
+                <div class="flex items-center gap-4">
+                    <!-- Circular Progress -->
+                    <div class="relative w-16 h-16 flex-shrink-0">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path class="text-gray-200/50" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path id="progressCircle" class="text-blue-500 progress-ring" stroke-width="3.5" stroke-dasharray="100, 100" stroke-dashoffset="100" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center flex-col">
+                            <span id="progressText" class="text-sm font-bold text-gray-800">0%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-800" id="progressTitle">Belum ada tugas</p>
+                        <p class="text-xs text-gray-500 mt-0.5" id="progressSubtitle">Rencanakan produktivitasmu</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pomodoro Timer -->
+            <div class="glass-panel p-5 spring-up" style="animation-delay: 0.1s;">
+                <div class="flex justify-between items-center mb-5">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5"><i class="fa-solid fa-stopwatch text-orange-500"></i> Fokus Mode</h3>
+                    <div class="flex bg-white/40 rounded-full p-1 border border-white/60 shadow-inner">
+                        <button id="modeWork" class="text-[10px] px-3 py-1 rounded-full bg-white shadow-sm font-bold text-gray-800 transition-all">Kerja</button>
+                        <button id="modeBreak" class="text-[10px] px-3 py-1 rounded-full text-gray-500 font-medium hover:text-gray-800 transition-all">Rehat</button>
+                    </div>
+                </div>
+                <div class="text-center mb-5">
+                    <div id="timerDisplay" class="text-4xl font-bold tracking-tighter text-gray-900 mb-1" style="font-variant-numeric: tabular-nums;">25:00</div>
+                    <p id="timerLabel" class="text-xs text-gray-500 font-medium">Sesi Fokus (25 Min)</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btnTimerToggle" class="flex-1 bg-gray-900 hover:bg-black text-white text-sm font-semibold py-2.5 rounded-xl btn-press shadow-md transition-colors">Mulai Fokus</button>
+                    <button id="btnTimerReset" class="w-11 h-11 bg-white hover:bg-gray-50 text-gray-600 rounded-xl btn-press border border-gray-200 shadow-sm flex items-center justify-center transition-colors"><i class="fa-solid fa-rotate-right text-sm"></i></button>
+                </div>
+            </div>
+
+            <!-- Add Task Glass Panel -->
+            <div class="glass-panel p-6 spring-up" style="animation-delay: 0.2s;">
+                <h2 class="text-lg font-semibold mb-5 text-gray-900 flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-blue-500"></i> Tambah Kegiatan
+                </h2>
+                <form id="taskForm" class="space-y-4">
+                    <div>
+                        <input type="text" id="taskTitle" required placeholder="Apa fokus Anda saat ini?"
+                            class="w-full glass-input rounded-xl px-4 py-3 text-sm placeholder-gray-400">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-500 mb-1.5 ml-1 uppercase">Tanggal Pelaksanaan</label>
+                        <input type="date" id="taskDate" required
+                            class="w-full glass-input rounded-xl px-4 py-3 text-sm text-gray-700 cursor-pointer">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 mb-1.5 ml-1 uppercase">Kategori</label>
+                            <select id="taskCategory" required
+                                class="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-gray-700 appearance-none cursor-pointer">
+                                <option value="Pekerjaan">Pekerjaan</option>
+                                <option value="Kuliah">Kuliah</option>
+                                <option value="Proyek">Proyek</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 mb-1.5 ml-1 uppercase">Jam</label>
+                            <input type="time" id="taskTime" required
+                                class="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-gray-700">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-gray-500 mb-1.5 ml-1 uppercase">Prioritas</label>
+                        <select id="taskPriority" required
+                            class="w-full glass-input rounded-xl px-4 py-3 text-sm text-gray-700 appearance-none cursor-pointer">
+                            <option value="Normal">Normal (Kegiatan Rutin)</option>
+                            <option value="Tinggi">Tinggi (Penting)</option>
+                            <option value="Mendesak">Mendesak (Harus Segera!)</option>
+                            <option value="Pengingat Besok">Pengingat Besok</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" id="submitBtn"
+                        class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl shadow-lg shadow-blue-500/30 btn-press flex items-center justify-center gap-2 border border-blue-500/50">
+                        Simpan Kegiatan
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Column: Tabs, Timeline & Alerts -->
+        <div class="lg:col-span-8 flex flex-col gap-6">
+            
+            <!-- View Tabs -->
+            <div class="glass-panel p-1 flex gap-1 rounded-2xl w-full sm:w-max mx-auto lg:mx-0 spring-up" style="animation-delay: 0.25s;">
+                <button id="tabNavJadwal" class="flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm transition-all duration-300 tab-active">Hari Ini</button>
+                <button id="tabNavRiwayat" class="flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm transition-all duration-300 tab-inactive">Kalender Waktu</button>
+            </div>
+
+            <!-- TAB 1: Hari Ini -->
+            <div id="viewHariIni" class="flex flex-col gap-6 w-full">
+                <!-- Highlights / Alerts Area (Apple Wallet style cards) -->
+                <div id="alertsContainer" class="hidden spring-up" style="animation-delay: 0.3s;">
+                    <h2 class="text-sm font-bold text-gray-500 mb-3 ml-2 uppercase tracking-wider">Perhatian Khusus</h2>
+                    <div id="alertsList" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Alerts injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Timeline Area Today -->
+                <div class="glass-panel p-6 sm:p-8 flex-grow spring-up" style="animation-delay: 0.4s;">
+                    <div class="flex justify-between items-end mb-8">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 tracking-tight" style="letter-spacing: -0.5px;">Jadwal Utama</h2>
+                            <p class="text-sm font-medium text-gray-500 mt-1">Fokus pada yang ada di depan mata</p>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyStateToday" class="hidden flex-col items-center justify-center py-16 text-center">
+                        <div class="w-20 h-20 bg-white/50 rounded-2xl flex items-center justify-center mb-5 text-4xl text-gray-300 shadow-inner border border-white/60">
+                            <i class="fa-solid fa-mug-hot"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800">Tidak ada jadwal hari ini</h3>
+                        <p class="text-sm text-gray-500 mt-2 max-w-xs">Waktu Anda kosong. Tambahkan kegiatan untuk mulai produktif.</p>
+                    </div>
+
+                    <!-- Timeline Container -->
+                    <div id="timelineContainerToday" class="relative space-y-4 hidden pb-4">
+                        <!-- Tasks injected via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: Riwayat -->
+            <div id="viewRiwayat" class="hidden flex-col gap-6 w-full spring-up">
+                <div class="glass-panel p-6 sm:p-8 flex-grow">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 border-b border-gray-200/50 pb-6">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 tracking-tight" style="letter-spacing: -0.5px;">Kalender Jadwal</h2>
+                            <p class="text-sm font-medium text-gray-500 mt-1">Rencanakan masa depan & tinjau masa lalu</p>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label class="block text-[10px] font-bold text-gray-500 mb-1 ml-1 uppercase">Pilih Tanggal</label>
+                            <input type="date" id="historyDate" class="w-full sm:w-auto glass-input rounded-xl px-4 py-2 text-sm font-medium text-gray-800 cursor-pointer shadow-sm">
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyStateHistory" class="hidden flex-col items-center justify-center py-16 text-center">
+                        <div class="w-20 h-20 bg-white/50 rounded-2xl flex items-center justify-center mb-5 text-4xl text-gray-300 shadow-inner border border-white/60">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800">Jadwal Kosong</h3>
+                        <p class="text-sm text-gray-500 mt-2 max-w-xs">Tidak ada kegiatan yang dicatat pada tanggal terpilih.</p>
+                    </div>
+
+                    <!-- Timeline Container -->
+                    <div id="timelineContainerHistory" class="relative space-y-4 hidden pb-4">
+                        <!-- Tasks injected via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Firebase & Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuration & Global Vars ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mifta-sibuk-app';
+        
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIS8Q011uBMY0aDur_wDmEmq-_Hm2DseY",
+            authDomain: "logika-game-tanam-kita.firebaseapp.com",
+            projectId: "logika-game-tanam-kita",
+            storageBucket: "logika-game-tanam-kita.firebasestorage.app",
+            messagingSenderId: "932770607512",
+            appId: "1:932770607512:web:08b57b69fe527df14dfbed"
+        };
+
+        let app, db, auth, userId = null;
+        let allTasks = []; 
+        let currentActiveTab = 'jadwal';
+
+        // --- DOM Elements ---
+        const taskForm = document.getElementById('taskForm');
+        const currentDateDisplay = document.getElementById('currentDateDisplay');
+        const authStatus = document.getElementById('authStatus');
+        
+        const tabNavJadwal = document.getElementById('tabNavJadwal');
+        const tabNavRiwayat = document.getElementById('tabNavRiwayat');
+        const viewHariIni = document.getElementById('viewHariIni');
+        const viewRiwayat = document.getElementById('viewRiwayat');
+        const historyDate = document.getElementById('historyDate');
+        
+        const progressCircle = document.getElementById('progressCircle');
+        const progressText = document.getElementById('progressText');
+        const progressTitle = document.getElementById('progressTitle');
+        const alertsContainer = document.getElementById('alertsContainer');
+        const alertsList = document.getElementById('alertsList');
+        
+        const emptyStateToday = document.getElementById('emptyStateToday');
+        const timelineContainerToday = document.getElementById('timelineContainerToday');
+        const emptyStateHistory = document.getElementById('emptyStateHistory');
+        const timelineContainerHistory = document.getElementById('timelineContainerHistory');
+
+        // Pomodoro Elements
+        const timerDisplay = document.getElementById('timerDisplay');
+        const btnTimerToggle = document.getElementById('btnTimerToggle');
+        const btnTimerReset = document.getElementById('btnTimerReset');
+        const modeWork = document.getElementById('modeWork');
+        const modeBreak = document.getElementById('modeBreak');
+        const timerLabel = document.getElementById('timerLabel');
+
+        let timerSeconds = 25 * 60;
+        let timerInterval = null;
+        let isTimerRunning = false;
+        let isWorkMode = true;
+
+        // --- Utilities ---
+        function getLocalISODate(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function formatDateReadable(dateStr) {
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('id-ID', options);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'ios-toast';
+            
+            let icon = '<i class="fa-solid fa-info-circle text-blue-500"></i>';
+            if(type === 'success') icon = '<i class="fa-solid fa-check-circle text-green-500"></i>';
+            if(type === 'error') icon = '<i class="fa-solid fa-circle-exclamation text-red-500"></i>';
+            if(type === 'warning') icon = '<i class="fa-solid fa-triangle-exclamation text-orange-500"></i>';
+            
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        // --- Pomodoro Logic ---
+        function updateTimerDisplay() {
+            const m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+            const s = String(timerSeconds % 60).padStart(2, '0');
+            timerDisplay.textContent = `${m}:${s}`;
+        }
+
+        function setTimerMode(work) {
+            isWorkMode = work;
+            timerSeconds = isWorkMode ? 25 * 60 : 5 * 60;
+            timerLabel.textContent = isWorkMode ? "Sesi Fokus (25 Min)" : "Sesi Rehat (5 Min)";
+            
+            if(isWorkMode) {
+                modeWork.className = "text-[10px] px-3 py-1 rounded-full bg-white shadow-sm font-bold text-gray-800 transition-all";
+                modeBreak.className = "text-[10px] px-3 py-1 rounded-full text-gray-500 font-medium hover:text-gray-800 transition-all";
+            } else {
+                modeBreak.className = "text-[10px] px-3 py-1 rounded-full bg-white shadow-sm font-bold text-gray-800 transition-all";
+                modeWork.className = "text-[10px] px-3 py-1 rounded-full text-gray-500 font-medium hover:text-gray-800 transition-all";
+            }
+            
+            if(isTimerRunning) toggleTimer(); else updateTimerDisplay();
+        }
+
+        function toggleTimer() {
+            if(isTimerRunning) {
+                clearInterval(timerInterval);
+                btnTimerToggle.textContent = "Lanjut";
+                btnTimerToggle.className = "flex-1 bg-gray-900 hover:bg-black text-white text-sm font-semibold py-2.5 rounded-xl btn-press shadow-md transition-colors";
+            } else {
+                timerInterval = setInterval(() => {
+                    timerSeconds--;
+                    updateTimerDisplay();
+                    if(timerSeconds <= 0) {
+                        clearInterval(timerInterval);
+                        isTimerRunning = false;
+                        showToast(isWorkMode ? "Fokus selesai! Waktunya istirahat sejenak." : "Istirahat selesai! Mari kembali fokus.", "success");
+                        setTimerMode(!isWorkMode);
+                    }
+                }, 1000);
+                btnTimerToggle.textContent = "Jeda Waktu";
+                btnTimerToggle.className = "flex-1 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold py-2.5 rounded-xl btn-press shadow-md transition-colors";
+            }
+            isTimerRunning = !isTimerRunning;
+        }
+
+        function setupTimer() {
+            updateTimerDisplay();
+            modeWork.addEventListener('click', () => setTimerMode(true));
+            modeBreak.addEventListener('click', () => setTimerMode(false));
+            btnTimerToggle.addEventListener('click', toggleTimer);
+            btnTimerReset.addEventListener('click', () => {
+                if(isTimerRunning) toggleTimer();
+                setTimerMode(isWorkMode); 
+            });
+        }
+
+        // --- Initialization ---
+        function initializeUI() {
+            const todayStr = getLocalISODate(new Date());
+            historyDate.value = todayStr;
+            document.getElementById('taskDate').value = todayStr;
+            currentDateDisplay.textContent = formatDateReadable(todayStr);
+
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            now.setMinutes(0);
+            document.getElementById('taskTime').value = `${String(now.getHours()).padStart(2,'0')}:00`;
+
+            historyDate.addEventListener('change', (e) => {
+                renderApp();
+            });
+
+            // Tab Switcher Logic
+            tabNavJadwal.addEventListener('click', () => {
+                currentActiveTab = 'jadwal';
+                tabNavJadwal.className = "flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm transition-all duration-300 tab-active";
+                tabNavRiwayat.className = "flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm transition-all duration-300 tab-inactive";
+                viewHariIni.classList.remove('hidden');
+                viewRiwayat.classList.add('hidden');
+                renderApp();
+            });
+
+            tabNavRiwayat.addEventListener('click', () => {
+                currentActiveTab = 'riwayat';
+                tabNavRiwayat.className = "flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm transition-all duration-300 tab-active";
+                tabNavJadwal.className = "flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm transition-all duration-300 tab-inactive";
+                viewRiwayat.classList.remove('hidden');
+                viewHariIni.classList.add('hidden');
+                renderApp();
+            });
+
+            setupTimer();
+        }
+
+        async function initFirebase() {
+            if (!firebaseConfig) {
+                authStatus.innerHTML = '<span class="text-orange-500"><i class="fa-solid fa-cloud-bolt"></i> Local</span>';
+                showToast("Mode Lokal: Data tidak tersimpan di awan.", "warning");
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (tokenError) {
+                        console.warn("Token auth tidak cocok, beralih ke Anonim:", tokenError);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                userId = auth.currentUser?.uid;
+                if(userId) {
+                    authStatus.innerHTML = '<span class="text-blue-600"><i class="fa-solid fa-cloud"></i> Synced</span>';
+                    subscribeToTasks();
+                } else {
+                    throw new Error("Gagal mendapatkan User ID");
+                }
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                authStatus.innerHTML = '<span class="text-red-500"><i class="fa-solid fa-cloud-xmark"></i> Offline</span>';
+                showToast("Gagal terhubung ke Cloud.", "error");
+            }
+        }
+
+        function subscribeToTasks() {
+            if (!userId) return; 
+            const tasksRef = collection(db, 'artifacts', appId, 'users', userId, 'tasks');
+            onSnapshot(tasksRef, (snapshot) => {
+                allTasks = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                renderApp();
+            }, (error) => {
+                console.error("Firestore Subscribe Error:", error);
+                showToast("Gagal menyinkronkan jadwal.", "error");
+            });
+        }
+
+        // --- Action Handlers ---
+        taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            
+            const title = document.getElementById('taskTitle').value.trim();
+            const date = document.getElementById('taskDate').value;
+            const time = document.getElementById('taskTime').value;
+            const priority = document.getElementById('taskPriority').value;
+            const category = document.getElementById('taskCategory').value;
+
+            if (!title || !time || !date) return;
+
+            const newTask = {
+                title, date, time, priority, category,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan...';
+            submitBtn.disabled = true;
+
+            try {
+                if (userId && db) {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', userId, 'tasks'), newTask);
+                } else {
+                    newTask.id = crypto.randomUUID();
+                    allTasks.push(newTask);
+                    renderApp();
+                }
+                
+                showToast("Kegiatan ditambahkan!", "success");
+                
+                // Simpan tanggal yang baru saja dipilih agar tidak kereset ke hari ini
+                const selectedDate = document.getElementById('taskDate').value;
+                taskForm.reset();
+                document.getElementById('taskDate').value = selectedDate; 
+
+                // Reset jam kembali default
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                now.setMinutes(0);
+                document.getElementById('taskTime').value = `${String(now.getHours()).padStart(2,'0')}:00`;
+                
+            } catch (error) {
+                showToast("Kesalahan saat menyimpan.", "error");
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        window.toggleTaskCompletion = async (taskId, currentState) => {
+            if (userId && db) {
+                try {
+                    const taskRef = doc(db, 'artifacts', appId, 'users', userId, 'tasks', taskId);
+                    await updateDoc(taskRef, { completed: !currentState });
+                } catch (error) {
+                    showToast("Gagal memperbarui.", "error");
+                }
+            } else {
+                const task = allTasks.find(t => t.id === taskId);
+                if(task) task.completed = !currentState;
+                renderApp();
+            }
+        };
+
+        window.deleteTask = async (taskId) => {
+            if (userId && db) {
+                try {
+                    const taskRef = doc(db, 'artifacts', appId, 'users', userId, 'tasks', taskId);
+                    await deleteDoc(taskRef);
+                } catch (error) {
+                    showToast("Gagal menghapus.", "error");
+                }
+            } else {
+                allTasks = allTasks.filter(t => t.id !== taskId);
+                renderApp();
+            }
+        };
+
+        // --- Rendering Logic ---
+        function updateStats(todayTasks) {
+            if (todayTasks.length === 0) {
+                progressCircle.style.strokeDashoffset = 100;
+                progressText.textContent = "0%";
+                progressTitle.textContent = "Belum ada tugas";
+                progressCircle.classList.remove('text-green-500');
+                progressCircle.classList.add('text-blue-500');
+                return;
+            }
+            const completedCount = todayTasks.filter(t => t.completed).length;
+            const percentage = Math.round((completedCount / todayTasks.length) * 100);
+            
+            progressCircle.style.strokeDashoffset = 100 - percentage;
+            progressText.textContent = `${percentage}%`;
+            
+            if (percentage === 100) {
+                progressTitle.textContent = "Selesai Sempurna! 🎉";
+                progressCircle.classList.remove('text-blue-500');
+                progressCircle.classList.add('text-green-500');
+            } else if (percentage >= 50) {
+                progressTitle.textContent = "Kerja Bagus! 💪";
+                progressCircle.classList.remove('text-green-500');
+                progressCircle.classList.add('text-blue-500');
+            } else {
+                progressTitle.textContent = "Ayo Mulai! 🚀";
+                progressCircle.classList.remove('text-green-500');
+                progressCircle.classList.add('text-blue-500');
+            }
+        }
+
+        function renderApp() {
+            const todayStr = getLocalISODate(new Date());
+            const todayTasks = allTasks.filter(t => t.date === todayStr);
+            
+            // 2. Render berdasarkan Tab yang Aktif
+            if (currentActiveTab === 'jadwal') {
+                updateStats(todayTasks);
+                
+                const tomorrowDate = new Date();
+                tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+                const tomorrowStr = getLocalISODate(tomorrowDate);
+
+                const alerts = allTasks.filter(t => {
+                    if (t.completed) return false;
+                    if (t.priority === 'Mendesak' && t.date <= todayStr) return true;
+                    if (t.priority === 'Pengingat Besok' && t.date === tomorrowStr) return true;
+                    return false;
+                });
+
+                renderAlerts(alerts);
+                
+                todayTasks.sort((a, b) => a.time.localeCompare(b.time));
+                renderTimeline(todayTasks, timelineContainerToday, emptyStateToday);
+            } else {
+                const selectedDate = historyDate.value;
+                const historyTasks = allTasks.filter(t => t.date === selectedDate);
+                
+                // Sinkronisasi presentase dengan tanggal di Kalender
+                updateStats(historyTasks);
+                
+                historyTasks.sort((a, b) => a.time.localeCompare(b.time));
+                renderTimeline(historyTasks, timelineContainerHistory, emptyStateHistory);
+            }
+        }
+
+        function renderAlerts(alerts) {
+            if (alerts.length === 0) {
+                alertsContainer.classList.add('hidden');
+                return;
+            }
+            
+            alertsContainer.classList.remove('hidden');
+            alertsList.innerHTML = '';
+
+            alerts.forEach(task => {
+                const isUrgent = task.priority === 'Mendesak';
+                
+                // Apple Wallet style glowing cards
+                const bgStyle = isUrgent 
+                    ? 'background: linear-gradient(135deg, rgba(255, 59, 48, 0.1), rgba(255, 59, 48, 0.05)); border: 1px solid rgba(255, 59, 48, 0.2);' 
+                    : 'background: linear-gradient(135deg, rgba(175, 82, 222, 0.1), rgba(175, 82, 222, 0.05)); border: 1px solid rgba(175, 82, 222, 0.2);';
+                
+                const iconColor = isUrgent ? 'text-red-500' : 'text-purple-500';
+                const textColor = isUrgent ? 'text-red-800' : 'text-purple-800';
+
+                const alertCard = document.createElement('div');
+                alertCard.className = `p-4 rounded-2xl backdrop-blur-xl shadow-sm relative overflow-hidden flex flex-col justify-between btn-press task-card cursor-pointer`;
+                alertCard.style = bgStyle;
+                alertCard.setAttribute('onclick', `toggleTaskCompletion('${task.id}', ${task.completed})`);
+                
+                alertCard.innerHTML = `
+                    <div class="flex items-start gap-3 mb-2">
+                        <div class="mt-0.5"><i class="fa-solid ${isUrgent ? 'fa-exclamation-circle' : 'fa-star'} ${iconColor} text-lg"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm ${textColor} leading-tight">${task.title}</h4>
+                            <p class="text-xs text-gray-600 font-medium mt-1 opacity-80">
+                                ${task.time}
+                            </p>
+                        </div>
+                    </div>
+                `;
+                alertsList.appendChild(alertCard);
+            });
+        }
+
+        function renderTimeline(tasks, containerElement, emptyElement) {
+            if (tasks.length === 0) {
+                containerElement.classList.add('hidden');
+                emptyElement.classList.remove('hidden');
+                emptyElement.classList.add('flex');
+                return;
+            }
+
+            emptyElement.classList.add('hidden');
+            emptyElement.classList.remove('flex');
+            containerElement.classList.remove('hidden');
+            containerElement.innerHTML = '';
+
+            tasks.forEach((task, index) => {
+                let badgeStyle = 'bg-gray-100 text-gray-600 border-gray-200';
+                let dotColor = 'bg-gray-400';
+                
+                if(!task.completed) {
+                    if(task.priority === 'Mendesak') { badgeStyle = 'bg-red-100 text-red-700 border-red-200'; dotColor = 'bg-red-500'; }
+                    else if(task.priority === 'Tinggi') { badgeStyle = 'bg-orange-100 text-orange-700 border-orange-200'; dotColor = 'bg-orange-500'; }
+                    else if(task.priority === 'Pengingat Besok') { badgeStyle = 'bg-purple-100 text-purple-700 border-purple-200'; dotColor = 'bg-purple-500'; }
+                    else { badgeStyle = 'bg-blue-100 text-blue-700 border-blue-200'; dotColor = 'bg-blue-500'; }
+                }
+
+                const item = document.createElement('div');
+                item.className = `flex gap-4 group spring-up`;
+                item.style.animationDelay = `${index * 0.05}s`;
+                
+                const cardOpacity = task.completed ? 'opacity-50 grayscale-[30%]' : '';
+                const textStyle = task.completed ? 'line-through text-gray-400' : 'text-gray-900';
+
+                item.innerHTML = `
+                    <div class="flex flex-col items-center pt-2">
+                        <div class="w-3 h-3 rounded-full ${task.completed ? 'bg-green-500' : dotColor} shadow-sm ring-4 ring-white/60"></div>
+                        ${index !== tasks.length - 1 ? '<div class="w-[2px] h-full bg-gradient-to-b from-gray-200 to-transparent mt-2 rounded-full"></div>' : ''}
+                    </div>
+                    
+                    <div class="flex-grow bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] task-card ${cardOpacity}">
+                        <div class="flex justify-between items-start mb-1">
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <h3 class="text-base font-semibold ${textStyle} tracking-tight">${task.title}</h3>
+                            </div>
+                            <div class="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="toggleTaskCompletion('${task.id}', ${task.completed})" 
+                                    class="w-8 h-8 rounded-full flex items-center justify-center bg-white/80 text-gray-500 hover:text-green-600 hover:bg-white shadow-sm btn-press transition-colors">
+                                    <i class="fa-solid ${task.completed ? 'fa-arrow-rotate-left' : 'fa-check'}"></i>
+                                </button>
+                                <button onclick="deleteTask('${task.id}')" 
+                                    class="w-8 h-8 rounded-full flex items-center justify-center bg-white/80 text-gray-500 hover:text-red-500 hover:bg-white shadow-sm btn-press transition-colors">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 mt-3">
+                            <span class="text-[11px] font-bold text-gray-600 bg-white/50 px-2 py-1 rounded-lg border border-white/60 shadow-sm flex items-center gap-1">
+                                <i class="fa-regular fa-clock"></i> ${task.time}
+                            </span>
+                            ${task.category ? `<span class="text-[11px] font-bold text-gray-600 bg-white/50 px-2 py-1 rounded-lg border border-white/60 shadow-sm flex items-center gap-1">
+                                <i class="fa-solid fa-layer-group"></i> ${task.category}
+                            </span>` : ''}
+                            <span class="text-[11px] font-bold px-2 py-1 rounded-lg border ${badgeStyle}">
+                                ${task.priority}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                containerElement.appendChild(item);
+            });
+        }
+
+        initializeUI();
+        initFirebase();
+    </script>
+</body>
+</html>
